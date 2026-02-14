@@ -1,0 +1,15 @@
+{
+  "d_model": 256,
+  "num_heads": 8,
+  "num_layers": 4,
+  "dff": 1024,
+  "dropout_rate": 0.2,
+  "max_encoder_len": 200,
+  "max_decoder_len": 300,
+  "vocab_size": 135,
+  "warmup_steps": 2000,
+  "label_smoothing": 0.1,
+  "epochs": 100,
+  "batch_size": 32,
+  "checkpoint_dir": "checkpoints"
+}
