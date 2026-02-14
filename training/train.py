@@ -24,7 +24,9 @@ from typing import Optional
 
 from transformer_math_physics_tutor.models.config import TransformerConfig
 from transformer_math_physics_tutor.training.scheduler import CustomSchedule
-from transformer_math_physics_tutor.training.losses import loss_function, accuracy_function
+from transformer_math_physics_tutor.training.losses import (
+    loss_function, accuracy_function, cross_attention_entropy_loss
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -51,7 +53,8 @@ class TransformerTrainer:
     """
 
     def __init__(self, model: tf.keras.Model, config: TransformerConfig,
-                 decoder_mask_rate: float = 0.0):
+                 decoder_mask_rate: float = 0.0,
+                 attn_diversity_weight: float = 0.0):
         """
         Inicializa el trainer.
 
@@ -61,10 +64,15 @@ class TransformerTrainer:
             decoder_mask_rate: Fracción de tokens del decoder input a enmascarar
                 durante entrenamiento (0.0 = desactivado). Valores 0.15-0.25
                 fuerzan al modelo a usar cross-attention con el encoder.
+            attn_diversity_weight: Peso del loss de diversidad de cross-attention.
+                (0.0 = desactivado). Penaliza atención uniforme para forzar
+                al modelo a focalizar en tokens relevantes del encoder.
+                Valores recomendados: 0.5-2.0.
         """
         self.model = model
         self.config = config
         self.decoder_mask_rate = decoder_mask_rate
+        self.attn_diversity_weight = attn_diversity_weight
 
         # Learning rate schedule del paper original
         self.learning_rate = CustomSchedule(config.d_model, config.warmup_steps)
@@ -171,6 +179,9 @@ class TransformerTrainer:
         Si decoder_mask_rate > 0, enmascara aleatoriamente tokens del
         decoder input para forzar al modelo a usar cross-attention.
 
+        Si attn_diversity_weight > 0, añade un loss que penaliza
+        cross-attention uniforme (alta entropía) para forzar focalización.
+
         Args:
             inp: Tensor de entrada del encoder, shape (batch, inp_seq_len).
             tar_inp: Decoder input (teacher forcing), shape (batch, tar_seq_len).
@@ -186,12 +197,21 @@ class TransformerTrainer:
             tar_inp = self._apply_decoder_masking(tar_inp)
 
         with tf.GradientTape() as tape:
-            # Forward pass
-            predictions = self.model((inp, tar_inp), training=True)
-            # predictions shape: (batch, tar_seq_len, vocab_size)
+            # Forward pass — con attention weights si necesitamos diversity loss
+            if self.attn_diversity_weight > 0:
+                predictions, attn_weights = self.model(
+                    (inp, tar_inp), training=True, return_attention=True
+                )
+            else:
+                predictions = self.model((inp, tar_inp), training=True)
 
-            # Calcular loss (con máscara de padding)
+            # Calcular loss principal (cross-entropy con máscara y label smoothing)
             loss = loss_function(tar_real, predictions, self.config.label_smoothing)
+
+            # Añadir loss de diversidad de cross-attention
+            if self.attn_diversity_weight > 0:
+                diversity_loss = cross_attention_entropy_loss(attn_weights, inp)
+                loss = loss + self.attn_diversity_weight * diversity_loss
 
         # Calcular gradientes
         gradients = tape.gradient(loss, self.model.trainable_variables)

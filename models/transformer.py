@@ -320,7 +320,8 @@ class Transformer(tf.keras.Model):
     def call(
         self,
         inputs: tuple,
-        training: bool = False
+        training: bool = False,
+        return_attention: bool = False
     ) -> tf.Tensor:
         """
         Forward pass del Transformer completo.
@@ -330,9 +331,13 @@ class Transformer(tf.keras.Model):
                 - inp: Token IDs del encoder, shape (batch, inp_seq_len).
                 - tar: Token IDs del decoder, shape (batch, tar_seq_len).
             training: Si True, aplica dropout.
+            return_attention: Si True, retorna también los pesos de atención.
 
         Returns:
-            Tensor de logits, shape (batch, tar_seq_len, vocab_size).
+            Si return_attention=False:
+                Tensor de logits, shape (batch, tar_seq_len, vocab_size).
+            Si return_attention=True:
+                Tupla de (logits, attention_weights_dict).
         """
         inp, tar = inputs
 
@@ -373,6 +378,9 @@ class Transformer(tf.keras.Model):
         # --- Capa lineal final ---
         final_output = self.final_layer(dec_output)
         # shape: (batch, tar_seq_len, vocab_size)
+
+        if return_attention:
+            return final_output, attention_weights
 
         return final_output
 

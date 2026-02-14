@@ -115,6 +115,76 @@ def accuracy_function(
     return total_correct / tf.maximum(num_valid, 1.0)
 
 
+def cross_attention_entropy_loss(
+    attention_weights: dict,
+    encoder_input: tf.Tensor
+) -> tf.Tensor:
+    """
+    Calcula la pérdida de diversidad de cross-attention.
+
+    Penaliza distribuciones de atención uniformes (alta entropía)
+    para forzar al decoder a atender posiciones específicas del encoder.
+
+    Solo calcula sobre tokens NO-padding del encoder.
+
+    La pérdida es la FRACCIÓN de la entropía máxima:
+      L = mean_entropy / max_entropy   (en [0, 1])
+    donde max_entropy = log(n_real_tokens).
+
+    Cuando la atención es uniforme (no focalizada), L ≈ 1.0.
+    Cuando está bien focalizada, L ≈ 0.3-0.5.
+
+    Args:
+        attention_weights: Dict con nombres de capa → pesos de atención.
+            Claves de cross-attention: 'decoder_layerN_block2'
+            Shapes: (batch, num_heads, tar_seq_len, inp_seq_len).
+        encoder_input: Token IDs del encoder, shape (batch, inp_seq_len).
+                       Para calcular cuántos tokens reales (no-padding) hay.
+
+    Returns:
+        Escalar: fracción de entropía máxima promediado sobre todas las
+        capas, cabezas y posiciones del decoder. Valor en [0, 1].
+    """
+    # Máscara de tokens reales del encoder: 1 donde hay tokens, 0 para PAD
+    enc_mask = tf.cast(tf.not_equal(encoder_input, 0), tf.float32)
+    # Número de tokens reales por ejemplo en el batch
+    n_real = tf.reduce_sum(enc_mask, axis=-1)  # (batch,)
+    # Entropía máxima posible = log(n_real_tokens)
+    max_entropy = tf.math.log(tf.maximum(n_real, 2.0))  # (batch,) al menos log(2)
+
+    entropy_sum = tf.constant(0.0)
+    n_layers = tf.constant(0.0)
+
+    for layer_name, weights in attention_weights.items():
+        # Solo cross-attention (block2), no self-attention (block1)
+        if 'block2' not in layer_name:
+            continue
+
+        # weights shape: (batch, num_heads, tar_seq_len, inp_seq_len)
+        # Enmascarar pesos de padding del encoder (ya deberían ser ~0 por la mask,
+        # pero por seguridad)
+        enc_mask_4d = enc_mask[:, tf.newaxis, tf.newaxis, :]  # (batch, 1, 1, inp_seq_len)
+        # Renormalizar si es necesario
+        masked_w = weights * enc_mask_4d
+        masked_w = masked_w / tf.maximum(tf.reduce_sum(masked_w, axis=-1, keepdims=True), 1e-9)
+
+        # Entropía: H = -sum(p * log(p)), con protección numérica
+        log_w = tf.math.log(tf.maximum(masked_w, 1e-9))
+        entropy = -tf.reduce_sum(masked_w * log_w, axis=-1)
+        # entropy shape: (batch, num_heads, tar_seq_len)
+
+        # Promediar sobre heads y tar_seq_len
+        mean_entropy_per_batch = tf.reduce_mean(entropy, axis=[1, 2])  # (batch,)
+
+        # Normalizar por entropía máxima: fracción ∈ [0, 1]
+        frac = mean_entropy_per_batch / tf.maximum(max_entropy, 1e-9)  # (batch,)
+
+        entropy_sum += tf.reduce_mean(frac)
+        n_layers += 1.0
+
+    return entropy_sum / tf.maximum(n_layers, 1.0)
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("DEMO: Loss y Accuracy Functions")

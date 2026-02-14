@@ -81,7 +81,8 @@ def main():
     CHECKPOINT_EVERY = 5
     EARLY_STOPPING_PATIENCE = 10
     LABEL_SMOOTHING = 0.1
-    DECODER_MASK_RATE = 0.20  # 20% decoder masking → fuerza cross-attention
+    DECODER_MASK_RATE = 0.35  # 35% decoder masking → fuerza cross-attention
+    ATTN_DIVERSITY_WEIGHT = 1.0  # Peso del loss de diversidad de cross-attention
 
     print(f"\n[CONFIG — Math + Physics combinado]")
     print(f"  Data: {DATA_FILE}")
@@ -93,6 +94,7 @@ def main():
     print(f"  Dropout: {DROPOUT}, Warmup steps: {WARMUP_STEPS}")
     print(f"  Early stopping patience: {EARLY_STOPPING_PATIENCE}")
     print(f"  Decoder mask rate: {DECODER_MASK_RATE} (fuerza cross-attention)")
+    print(f"  Attn diversity weight: {ATTN_DIVERSITY_WEIGHT} (penaliza atención uniforme)")
 
     # ── 2. Crear tokenizer y datasets ───────────────────────
     print(f"\n{'='*60}")
@@ -167,7 +169,8 @@ def main():
     print(f"{'='*60}")
 
     trainer = TransformerTrainer(model, config,
-                                decoder_mask_rate=DECODER_MASK_RATE)
+                                decoder_mask_rate=DECODER_MASK_RATE,
+                                attn_diversity_weight=ATTN_DIVERSITY_WEIGHT)
 
     start_time = time.time()
     history = trainer.train(
