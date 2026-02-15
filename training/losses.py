@@ -185,6 +185,77 @@ def cross_attention_entropy_loss(
     return entropy_sum / tf.maximum(n_layers, 1.0)
 
 
+def copy_loss_function(
+    real: tf.Tensor,
+    final_probs: tf.Tensor,
+    label_smoothing: float = 0.1
+) -> tf.Tensor:
+    """
+    Calcula NLL loss sobre la distribución mezclada del Pointer-Generator.
+
+    A diferencia de loss_function (que recibe logits y aplica log_softmax),
+    esta función recibe PROBABILIDADES ya mezcladas (vocab + copy) y
+    calcula directamente -log(P(y_t)).
+
+    Args:
+        real: Tensor de labels reales, shape (batch, seq_len).
+        final_probs: Distribución mezclada (ya probabilidades),
+                     shape (batch, seq_len, vocab_size).
+        label_smoothing: Factor de suavizado de etiquetas.
+
+    Returns:
+        Escalar con la pérdida promedio (solo sobre tokens no-padding).
+    """
+    vocab_size = tf.shape(final_probs)[-1]
+
+    # Log de las probabilidades mezcladas
+    log_probs = tf.math.log(tf.maximum(final_probs, 1e-9))
+
+    # One-hot labels con label smoothing
+    one_hot_labels = tf.one_hot(tf.cast(real, tf.int32), vocab_size)
+
+    if label_smoothing > 0.0:
+        one_hot_labels = (
+            one_hot_labels * (1.0 - label_smoothing)
+            + label_smoothing / tf.cast(vocab_size, tf.float32)
+        )
+
+    # NLL: -sum(labels * log(probs))
+    loss_ = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
+    # loss_: (batch, seq_len)
+
+    # Máscara de padding
+    mask = tf.math.logical_not(tf.math.equal(real, 0))
+    mask = tf.cast(mask, dtype=loss_.dtype)
+    loss_ *= mask
+
+    total_loss = tf.reduce_sum(loss_)
+    num_valid = tf.reduce_sum(mask)
+
+    return total_loss / tf.maximum(num_valid, 1.0)
+
+
+def accuracy_from_probs(
+    real: tf.Tensor,
+    probs: tf.Tensor
+) -> tf.Tensor:
+    """
+    Calcula accuracy por token desde probabilidades (no logits).
+
+    Idéntica a accuracy_function pero funciona con probabilidades
+    en vez de logits (argmax funciona igual).
+
+    Args:
+        real: Labels reales, shape (batch, seq_len).
+        probs: Probabilidades, shape (batch, seq_len, vocab_size).
+
+    Returns:
+        Escalar con accuracy promedio.
+    """
+    # argmax funciona igual en probs y logits
+    return accuracy_function(real, probs)
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("DEMO: Loss y Accuracy Functions")
