@@ -35,3 +35,15 @@ build/
 # Stray files
 *.deb*
 informe final/Informe_JesusMantilla_Corrector.ipynb
+
+# V4 experimental files (resultado negativo, solo local)
+models/transformer_v4.py
+training/trainer_v4.py
+inference/generate_v4.py
+run_training_v4.py
+resume_phase3.py
+evaluation/evaluate_v4.py
+checkpoints/v4_copy/
+training_v4.log
+resume_phase3.log
+eval_v4.log
