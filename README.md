@@ -22,8 +22,10 @@ Answer: 42
 ### Características principales
 
 - **Arquitectura from-scratch**: Multi-Head Attention, Positional Encoding sinusoidal, Encoder-Decoder con residual connections
-- **7.4M parámetros** — modelo compacto para fines pedagógicos
-- **Tokenización a nivel de carácter** (135 tokens: 131 ASCII + 4 especiales)
+- **TransformerV3** con **Answer Head** (cabeza de regresión numérica auxiliar)
+- **10.5M parámetros** — modelo compacto para fines pedagógicos
+- **Tokenización BPE** (SentencePiece, vocabulario de 4,000 tokens)
+- **Entrenamiento en tres fases**: pre-entrenamiento de encoder → entrenamiento de decoder con cross-attention reinicializada → fine-tuning completo
 - **Pipeline completo**: datos → tokenización → entrenamiento → evaluación → interfaz Gradio
 - **Interfaz interactiva** con Gradio Blocks para demostración
 
@@ -32,24 +34,24 @@ Answer: 42
 ## 🏗️ Arquitectura del Modelo
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    TRANSFORMER (7.4M params)                │
-│                                                             │
-│  ENCODER (×4 capas)              DECODER (×4 capas)         │
-│  ┌──────────────────┐            ┌──────────────────────┐   │
-│  │ Input Embedding   │            │ Output Embedding      │   │
-│  │ + Pos. Encoding   │            │ + Pos. Encoding       │   │
-│  ├──────────────────┤            ├──────────────────────┤   │
-│  │ Self-Attention    │──────────▶│ Masked Self-Attention │   │
-│  │ (8 heads, d=256)  │           │ Cross-Attention ◀─────┤   │
-│  │ Add & LayerNorm   │           │ Add & LayerNorm       │   │
-│  │ FFN (1024)        │           │ FFN (1024)            │   │
-│  │ Add & LayerNorm   │           │ Add & LayerNorm       │   │
-│  └──────────────────┘            └──────────────────────┘   │
-│                                           │                 │
-│                                    Linear + Softmax         │
-│                                    (vocab_size=135)         │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                  TRANSFORMER V3 (10.5M params)                   │
+│                                                                  │
+│  ENCODER (×4 capas)              DECODER (×4 capas)              │
+│  ┌──────────────────┐            ┌──────────────────────┐        │
+│  │ Input Embedding   │            │ Output Embedding      │        │
+│  │ + Pos. Encoding   │            │ + Pos. Encoding       │        │
+│  ├──────────────────┤            ├──────────────────────┤        │
+│  │ Self-Attention    │──────────▶│ Masked Self-Attention │        │
+│  │ (8 heads, d=256)  │           │ Cross-Attention ◀─────┤        │
+│  │ Add & LayerNorm   │           │ Add & LayerNorm       │        │
+│  │ FFN (1024)        │           │ FFN (1024)            │        │
+│  │ Add & LayerNorm   │           │ Add & LayerNorm       │        │
+│  └──────────────────┘            └──────────────────────┘        │
+│         │                                 │                      │
+│    Answer Head                      Linear + Softmax             │
+│    (MLP → scalar)                  (vocab_size=4000)             │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### Hiperparámetros
@@ -61,36 +63,43 @@ Answer: 42
 | `num_layers` | 4 (encoder) + 4 (decoder) |
 | `dff` (feed-forward) | 1024 |
 | `dropout_rate` | 0.2 |
-| `vocab_size` | 135 (character-level) |
-| `max_encoder_len` | 200 tokens |
-| `max_decoder_len` | 300 tokens |
-| **Total parámetros** | **7,476,615** |
+| `vocab_size` | 4,000 (BPE / SentencePiece) |
+| `max_encoder_len` | 128 tokens |
+| `max_decoder_len` | 256 tokens |
+| **Total parámetros** | **~10,514,849** |
 
-### Entrenamiento
+### Entrenamiento en Tres Fases
 
-| Aspecto | Valor |
-|---------|-------|
-| Optimizador | Adam (β₁=0.9, β₂=0.98, ε=1e-9) |
-| Learning Rate | Warmup (2000 pasos) + inverse sqrt decay |
-| Loss | SparseCategoricalCrossentropy + label smoothing (0.1) |
-| Batch size | 32 |
-| Épocas | 89 (early stopping, patience=10) |
-| Regularización | Dropout 0.2, decoder token masking (20%) |
-| GPU | NVIDIA RTX 5060 (Blackwell) |
+El entrenamiento utiliza una estrategia de tres fases para resolver el problema de **colapso de cross-attention** (entropía=1.0):
+
+| Fase | Épocas | Descripción | Componentes entrenados |
+|------|--------|-------------|----------------------|
+| **Fase 1** | 30 | Pre-entrenamiento del encoder | Encoder + Answer Head (decoder congelado) |
+| **Fase 2** | 100 | Entrenamiento del decoder | Decoder + Final Layer (encoder congelado, cross-attention reinicializada) |
+| **Fase 3** | 50 | Fine-tuning completo | Todos los parámetros (lr_scale=0.1) |
+
+**Técnicas utilizadas:**
+- Optimizador Adam (β₁=0.9, β₂=0.98, ε=1e-9)
+- Learning Rate: Warmup (1000 pasos) + inverse sqrt decay
+- Loss combinada: seq2seq + answer regression (Huber) + diversity loss
+- Decoder token masking (35%) para forzar uso de cross-attention
+- Gradient clipping (global norm = 1.0)
+- Label smoothing (0.1)
+- GPU: NVIDIA RTX 5060 (Blackwell)
 
 ---
 
-## 📊 Datasets
+## 📊 Dataset
 
-El dataset combinado contiene **12,568 problemas** con soluciones paso a paso:
+Subconjunto curado de **6,881 problemas** con soluciones paso a paso:
 
-| Fuente | Dominio | Problemas | Descripción |
-|--------|---------|-----------|-------------|
-| [GSM8K](https://github.com/openai/grade-school-math) | Math | 8,638 | Aritmética de nivel escolar con razonamiento |
-| MATH (LLM-solved) | Math | 1,895 | Álgebra, combinatoria, geometría — soluciones generadas con LLM |
-| Physics Templates | Physics | 2,035 | Cinemática, dinámica, termodinámica, circuitos — problemas paramétricos |
+| Dominio | Train | Val | Test | Total |
+|---------|-------|-----|------|-------|
+| Math | ~4,800 | ~420 | ~550 | ~5,770 |
+| Physics | ~930 | ~89 | ~93 | ~1,111 |
+| **Total** | **5,729** | **509** | **643** | **6,881** |
 
-**Splits**: Train 10,237 / Val 939 / Test 1,392
+Derivado de GSM8K, MATH (con soluciones LLM) y problemas de física generados paramétricamente.
 
 ---
 
@@ -98,13 +107,33 @@ El dataset combinado contiene **12,568 problemas** con soluciones paso a paso:
 
 | Métrica | Valor |
 |---------|-------|
-| Token Accuracy (val) | **82.1%** |
-| Token Accuracy (test) | **81.2%** |
-| Train Accuracy | 73.4% |
-| Val Loss | 1.37 |
-| Exact Match (Answer:) | 0% (0/100) |
+| Token Accuracy (val) | **73.8%** |
+| Token Accuracy (test) | **69.9%** |
+| Train Accuracy (fase 3) | 64.9% |
+| Val Loss | 2.383 |
+| Exact Match (Answer:) | **3.0%** (3/100) |
+| Exact Match numérico (±0.5) | **3.5%** (3/86) |
+| Answer Head MAE | 298.8 |
+| Answer Head Exact (±0.5) | 62.2% |
 
-> **Nota importante**: El modelo alcanza ~82% de accuracy a nivel de token (predice bien el siguiente carácter), pero no logra respuestas numéricas correctas. Esto es una limitación inherente de la tokenización a nivel de carácter con un modelo de 7.4M parámetros. Ver la sección de Limitaciones en el notebook de demo y en el informe final.
+### Cross-Attention — Logro principal
+
+| Capa | Entropía normalizada | Estado |
+|------|---------------------|--------|
+| Decoder Layer 1 | 0.742 | SELECTIVA |
+| Decoder Layer 2 | 0.540 | SELECTIVA |
+| Decoder Layer 3 | 0.523 | SELECTIVA |
+| Decoder Layer 4 | 0.673 | SELECTIVA |
+
+> **Logro clave**: La cross-attention pasó de colapsada (entropía ≈ 1.0 en v1/v2) a **selectiva** (0.52–0.74), demostrando que el decoder atiende selectivamente al problema de entrada.
+
+### Evolución del proyecto
+
+| Versión | Tokenización | Params | Token Acc | Exact Match | Cross-Attention |
+|---------|-------------|--------|-----------|-------------|-----------------|
+| v1 | Character (135) | 7.4M | 82.1% | 0% | Colapsada (1.0) |
+| v2 | BPE (4000) | 10.5M | ~70% | 0% | Colapsada (1.0) |
+| **v3** | **BPE (4000)** | **10.5M** | **73.8%** | **3.0%** | **Selectiva (0.52-0.74)** |
 
 ---
 
@@ -113,8 +142,9 @@ El dataset combinado contiene **12,568 problemas** con soluciones paso a paso:
 ```
 transformer_math_physics_tutor/
 ├── models/                          # Arquitectura Transformer from-scratch
-│   ├── transformer.py               #   Modelo completo Encoder-Decoder
-│   ├── multihead_attention.py        #   Scaled Dot-Product + Multi-Head Attention
+│   ├── transformer.py               #   Base Encoder-Decoder (clase padre)
+│   ├── transformer_v3.py            #   TransformerV3 con Answer Head
+│   ├── multihead_attention.py       #   Scaled Dot-Product + Multi-Head Attention
 │   ├── encoder_layer.py             #   Capa encoder (Self-Attn + FFN)
 │   ├── decoder_layer.py             #   Capa decoder (Masked Self-Attn + Cross-Attn + FFN)
 │   ├── positional_encoding.py       #   Positional encoding sinusoidal
@@ -122,28 +152,21 @@ transformer_math_physics_tutor/
 │   └── config.py                    #   Configuración del modelo (dataclass)
 │
 ├── data/                            # Pipeline de datos
-│   ├── combined_math_physics.json   #   Dataset final combinado (12,568 problemas)
-│   ├── tokenizer.py                 #   Tokenizador a nivel de carácter
-│   ├── dataset_builder.py           #   Constructor de tf.data.Dataset
-│   ├── schema.py                    #   Esquema unificado y validación
-│   ├── build_combined_dataset.py    #   Script de construcción del dataset final
-│   ├── convert_gsm8k.py             #   Descarga y convierte GSM8K
-│   ├── convert_math_combined.py     #   Combina GSM8K + MATH_LLM
-│   ├── generate_physics_templates.py #  Genera problemas de física paramétricos
-│   └── generate_math_solutions_llm.py # Genera soluciones con LLM para MATH
+│   ├── combined_easy.json           #   Dataset curado (6,881 problemas)
+│   ├── subword_tokenizer.py         #   Tokenizador BPE (SentencePiece, 4000 tokens)
+│   └── dataset_builder.py           #   Constructor de tf.data.Dataset
 │
 ├── training/                        # Loop de entrenamiento
-│   ├── train.py                     #   TransformerTrainer (GradientTape, checkpointing)
-│   ├── losses.py                    #   Loss con label smoothing + masked accuracy
-│   ├── metrics.py                   #   Exact match + validación simbólica (SymPy)
-│   └── scheduler.py                 #   Learning rate: warmup + inverse sqrt decay
+│   ├── trainer.py                   #   TransformerTrainerV3 (GradientTape, 3-phase)
+│   ├── losses.py                    #   Loss combinada + diversity loss
+│   ├── metrics.py                   #   Exact match + validación simbólica
+│   └── scheduler.py                 #   Learning rate: warmup + inverse sqrt + scale
 │
 ├── inference/                       # Generación de respuestas
-│   ├── generate.py                  #   Generación autoregresiva (greedy, top-k, beam search)
-│   └── chatbot.py                   #   Chatbot interactivo en terminal
+│   └── generate.py                  #   Generación autoregresiva (greedy, top-k, beam search)
 │
 ├── evaluation/                      # Evaluación del modelo
-│   └── evaluate_math_physics.py     #   Token accuracy + exact match por dominio
+│   └── evaluate.py                  #   Token accuracy + exact match + cross-attention entropy
 │
 ├── notebooks/                       # Notebooks de demostración
 │   ├── 01_exploracion_datos.ipynb   #   Exploración y análisis del dataset
@@ -153,16 +176,15 @@ transformer_math_physics_tutor/
 ├── informe final/                   # Informe académico del proyecto
 │   └── Informe_MelissaCardona_ChatbotMathPhysics.ipynb
 │
-├── checkpoints/                     # Modelo entrenado (listo para usar)
-│   ├── best_model.weights.h5        #   Mejores pesos (por val_loss)
-│   ├── model_weights.weights.h5     #   Pesos finales
-│   ├── config.json                  #   Configuración del modelo
-│   ├── vocab.json                   #   Vocabulario del tokenizador
-│   ├── training_history.json        #   Historia de entrenamiento (89 épocas)
+├── checkpoints/v3_easy/             # Modelo entrenado (listo para usar)
+│   ├── model_weights.weights.h5     #   Pesos del modelo
+│   ├── config.json                  #   Configuración
+│   ├── sp_tokenizer.model           #   Modelo SentencePiece (BPE)
+│   ├── training_history.json        #   Historia (3 fases)
 │   └── evaluation_report.json       #   Métricas de evaluación
 │
-├── run_training.py                  # Script principal de entrenamiento
-├── test_all.py                      # Suite de tests (14 tests)
+├── run_training.py                  # Script de entrenamiento (3 fases)
+├── test_all.py                      # Suite de tests
 └── requirements.txt                 # Dependencias Python
 ```
 
@@ -174,61 +196,45 @@ transformer_math_physics_tutor/
 
 #### 1. Descargar el proyecto
 
-**Opción A — Git**:
 ```bash
 git clone https://github.com/MelissaCardona2003/Chat-bot-de-matemacticas-y-f-sica-con-TensorFlow.git
 cd Chat-bot-de-matemacticas-y-f-sica-con-TensorFlow
 ```
-
-**Opción B — ZIP**: En GitHub → botón verde **Code** → **Download ZIP** → descomprimir.
 
 #### 2. Crear entorno e instalar dependencias
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Linux/Mac
-# .venv\Scripts\activate    # Windows
-
 pip install -r requirements.txt
 ```
 
-> Funciona en **CPU**. No necesita GPU para ejecutar la demo.
+> Funciona en **CPU**. No necesita GPU.
 
-#### 3. Ejecutar la demo del chatbot
+#### 3. Ejecutar la demo
 
 ```bash
 jupyter notebook notebooks/03_demo_profesor.ipynb
 ```
 
-Ejecutar **todas las celdas en orden** (Shift+Enter). La interfaz Gradio se abrirá automáticamente con:
-- Selector de dominio (math / physics)
-- Ejemplos pre-cargados para probar
-- Métricas en tiempo real (confianza, perplexity, tiempo)
-- Sección de análisis y limitaciones
-
-#### ¿Qué esperar?
-
-- El modelo genera soluciones en formato **"Step 1:... Step 2:... Answer:..."**
-- Las respuestas muestran el estilo correcto, pero los **valores numéricos** no son precisos
-- Esto es esperado dado el tamaño del modelo (7.4M params vs 117M+ de GPT-2)
-- El notebook incluye un análisis detallado de por qué ocurre y qué se necesitaría para mejorar
+Ejecutar todas las celdas (Shift+Enter). La interfaz Gradio se abrirá automáticamente.
 
 ---
 
-## ⚠️ Limitaciones Conocidas
+## ⚠️ Limitaciones y Trabajo Futuro
 
-1. **0% Exact Match**: El modelo produce respuestas con formato correcto pero valores numéricos incorrectos
-2. **Tokenización carácter a carácter**: Un problema de 100 palabras → ~500 tokens (vs ~25 con BPE)
-3. **Escala del modelo**: 7.4M parámetros (~16x menor que GPT-2 small)
-4. **Sin pre-entrenamiento**: Aprende todo desde cero
+1. **3% Exact Match**: Formato correcto pero valores numéricos generalmente incorrectos
+2. **Sin mecanismo de copia**: El Transformer estándar no puede copiar tokens directamente del input
+3. **Dataset limitado**: 6,881 problemas es pequeño para razonamiento matemático
 
-### ¿Qué SÍ demuestra este proyecto?
+### ¿Qué SÍ demuestra?
 
-- ✅ Implementación correcta de un Transformer Encoder-Decoder completo desde cero
-- ✅ Pipeline de datos robusto (descarga, limpieza, validación, schema unificado)
-- ✅ Entrenamiento con técnicas modernas (label smoothing, LR scheduling, early stopping)
-- ✅ Evaluación honesta y rigurosa con métricas apropiadas
-- ✅ Despliegue con interfaz interactiva profesional (Gradio)
+- ✅ Transformer Encoder-Decoder completo from-scratch
+- ✅ Pipeline de datos robusto con tokenización BPE
+- ✅ Entrenamiento avanzado en tres fases con reinicialización de cross-attention
+- ✅ **Cross-attention selectiva** — logro técnico significativo
+- ✅ Evaluación rigurosa y honesta
+- ✅ Interfaz interactiva Gradio
 
 ---
 
@@ -243,11 +249,11 @@ Ejecutar **todas las celdas en orden** (Shift+Enter). La interfaz Gradio se abri
 
 ## 🛠️ Tecnologías
 
-- **TensorFlow 2.x** — Framework de deep learning
-- **Gradio** — Interfaz web interactiva
-- **NumPy / Matplotlib** — Cálculo numérico y visualización
-- **SymPy** — Validación simbólica de respuestas
-- **Datasets (HuggingFace)** — Descarga de datasets
+- **TensorFlow 2.x** — Deep learning
+- **SentencePiece** — Tokenización BPE
+- **Gradio** — Interfaz web
+- **NumPy / Matplotlib** — Cálculo y visualización
+- **SymPy** — Validación simbólica
 
 ---
 

@@ -20,7 +20,7 @@ import tensorflow as tf
 import numpy as np
 from typing import Optional, List
 
-from transformer_math_physics_tutor.data.tokenizer import CharTokenizer
+from transformer_math_physics_tutor.data.subword_tokenizer import SubwordTokenizer
 
 
 def _pad_to_length(tokens: List[int], max_len: int, pad_id: int) -> List[int]:
@@ -44,7 +44,7 @@ def _detect_ngram_repeat(tokens: List[int], n: int = 8) -> bool:
 
 def generate_text(
     model: tf.keras.Model,
-    tokenizer: CharTokenizer,
+    tokenizer: SubwordTokenizer,
     input_text: str,
     max_length: int = 300,
     temperature: float = 0.3,
@@ -60,7 +60,7 @@ def generate_text(
 
     Args:
         model: Modelo Transformer entrenado.
-        tokenizer: Instancia de CharTokenizer.
+        tokenizer: Instancia de SubwordTokenizer.
         input_text: Texto del problema a resolver.
         max_length: Longitud máxima de la respuesta generada.
         temperature: Factor de temperatura (0.0 = greedy, 0.3 = conservador).
@@ -95,7 +95,13 @@ def generate_text(
         decoder_input = tf.constant([decoder_tokens], dtype=tf.int32)
 
         # Forward pass
-        predictions = model((encoder_input, decoder_input), training=False)
+        output = model((encoder_input, decoder_input), training=False)
+        # TransformerV3 retorna tupla (logits, answer_pred)
+        # Transformer base retorna solo logits
+        if isinstance(output, tuple):
+            predictions = output[0]
+        else:
+            predictions = output
         # Tomar logits del último token: (1, vocab_size)
         logits = predictions[0, -1, :]  # (vocab_size,)
 
@@ -160,7 +166,7 @@ def generate_text(
 
 def generate_text_beam_search(
     model: tf.keras.Model,
-    tokenizer: CharTokenizer,
+    tokenizer: SubwordTokenizer,
     input_text: str,
     max_length: int = 150,
     beam_width: int = 3
@@ -174,7 +180,7 @@ def generate_text_beam_search(
 
     Args:
         model: Modelo Transformer entrenado.
-        tokenizer: Instancia de CharTokenizer.
+        tokenizer: Instancia de SubwordTokenizer.
         input_text: Texto del problema a resolver.
         max_length: Longitud máxima de la respuesta.
         beam_width: Ancho del haz (número de candidatos simultáneos).
@@ -213,7 +219,11 @@ def generate_text_beam_search(
             decoder_input = tf.cast(decoder_input, tf.int32)
 
             # Forward pass
-            predictions = model((encoder_input, decoder_input), training=False)
+            output = model((encoder_input, decoder_input), training=False)
+            if isinstance(output, tuple):
+                predictions = output[0]
+            else:
+                predictions = output
             predictions = predictions[:, -1, :]  # (1, vocab_size)
 
             # Log-probabilidades

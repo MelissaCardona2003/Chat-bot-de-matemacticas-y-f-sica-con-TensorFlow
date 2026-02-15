@@ -34,7 +34,7 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         warmup_steps: Número de pasos de warmup.
     """
 
-    def __init__(self, d_model: int, warmup_steps: int = 4000):
+    def __init__(self, d_model: int, warmup_steps: int = 4000, scale: float = 1.0):
         """
         Inicializa el scheduler.
 
@@ -42,12 +42,14 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
             d_model: Dimensión del modelo. El LR máximo escala con d_model^(-0.5).
             warmup_steps: Número de pasos de calentamiento.
                          Mayor warmup = LR máximo más bajo pero más estable.
+            scale: Factor de escala para el LR. Útil para fine-tuning (ej: 0.1).
         """
         super(CustomSchedule, self).__init__()
 
         self.d_model = d_model
         self.d_model_float = tf.constant(float(d_model), dtype=tf.float32)
         self.warmup_steps = warmup_steps
+        self.scale = scale
 
     def __call__(self, step: tf.Tensor) -> tf.Tensor:
         """
@@ -75,13 +77,14 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         # Tomar el mínimo de ambos (warmup crece, luego decay domina)
         lr = tf.math.rsqrt(self.d_model_float) * tf.math.minimum(arg1, arg2)
 
-        return lr
+        return lr * self.scale
 
     def get_config(self):
         """Serialización para guardar/cargar el scheduler."""
         return {
             "d_model": self.d_model,
             "warmup_steps": self.warmup_steps,
+            "scale": self.scale,
         }
 
 

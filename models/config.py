@@ -47,6 +47,7 @@ class TransformerConfig:
         max_decoder_len: int = 150,
         vocab_size: int = 128,
         warmup_steps: int = 4000,
+        lr_scale: float = 1.0,
         label_smoothing: float = 0.1,
         epochs: int = 50,
         batch_size: int = 32,
@@ -61,6 +62,7 @@ class TransformerConfig:
         self.max_decoder_len = max_decoder_len
         self.vocab_size = vocab_size
         self.warmup_steps = warmup_steps
+        self.lr_scale = lr_scale
         self.label_smoothing = label_smoothing
         self.epochs = epochs
         self.batch_size = batch_size

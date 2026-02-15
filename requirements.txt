@@ -4,3 +4,4 @@ sympy>=1.12
 gradio>=4.0.0
 matplotlib>=3.7.0
 datasets>=2.14.0
+sentencepiece>=0.2.0  # v2: tokenización por subpalabras (BPE)

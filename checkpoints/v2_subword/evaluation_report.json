@@ -1,0 +1,193 @@
+{
+  "version": "v2_subword",
+  "tokenizer": "SubwordTokenizer (BPE, 4000)",
+  "token_accuracy": {
+    "val_acc": 0.719135065873464,
+    "val_loss": 2.345833913485209,
+    "test_acc": 0.6949932642958381,
+    "test_loss": 2.4614116116003557
+  },
+  "exact_match": {
+    "correct": 1,
+    "total": 50,
+    "pct": 2.0,
+    "by_domain": {
+      "math": {
+        "correct": 1,
+        "total": 46
+      },
+      "physics": {
+        "correct": 0,
+        "total": 4
+      }
+    }
+  },
+  "cross_attention_entropy": {
+    "decoder_layer1_block2": 0.9999999764095906,
+    "decoder_layer2_block2": 0.9999999362387092,
+    "decoder_layer3_block2": 0.999999943211207,
+    "decoder_layer4_block2": 0.99999996537358
+  },
+  "examples": [
+    {
+      "problem": "There are 26 countries in South America and, in each country, there are 5 cities with 1000 people li",
+      "domain": "math",
+      "ref_answer": "130000",
+      "pred_answer": "",
+      "pred_solution": "Step 1: The number of people in the park is 100 * 2 = <<100*2=200>>200 people. Step 2: The number of people in the park is ",
+      "correct": false
+    },
+    {
+      "problem": "Pierson scored 278 points in one game of bowling. Nikita scored 11 more than half as many as Pierson",
+      "domain": "math",
+      "ref_answer": "428",
+      "pred_answer": "",
+      "pred_solution": "Step 1: If the number of points in the first round is 12, then the number of points in the second round is 12-12 = <<12-12=8>>8. Step 2: The number of points in the second round is 8-12 = <<8-12=4>>4.",
+      "correct": false
+    },
+    {
+      "problem": "Anakin and Locsin went to the beach today. Anakin caught 10 starfish, 6 sea horses, and 3 clownfish.",
+      "domain": "math",
+      "ref_answer": "32",
+      "pred_answer": "",
+      "pred_solution": "Step 1: First find the total number of kids on the second day: 20 kids * 2 = <<20*2=40>>40 kids Step 2: Then find the total number of kids on the third day: 40 kids * 2 = <<40*2=80>>80 kids Step 3: Th",
+      "correct": false
+    },
+    {
+      "problem": "Elijah has one dog that is one-fourth the weight of Kory\u2019s dog and another dog that is half the weig",
+      "domain": "math",
+      "ref_answer": "105",
+      "pred_answer": "",
+      "pred_solution": "Step 1: First find the total number of animals Cara has: 20 tickets * 2 = <<20*2=40>>40 Step 2: Then find the total number of animals Cara has:",
+      "correct": false
+    },
+    {
+      "problem": "John brings his dog to the vet. His dog needs 2 vaccines, which are $20 each, and a heartworm check.",
+      "domain": "math",
+      "ref_answer": "25",
+      "pred_answer": "",
+      "pred_solution": "Step 1: First find the total cost of the first two sets of the first two pieces of food: $12/car * 2 = $<<12*2=24>>24 Step 2: Then find the total cost of the second type of food: $24/car * 2 = $<<24*2",
+      "correct": false
+    },
+    {
+      "problem": "A customer\u2019s loyalty card at a store gives them rewards of $1 off their next purchase for every $20 ",
+      "domain": "math",
+      "ref_answer": "31",
+      "pred_answer": "",
+      "pred_solution": "Step 1: First, we need to determine how many extra items in the first hour. We do this by performing 100-20=<<100-20=80>>80 items in the second hour. Step 2: Next, we perform 80/2=<<80/2=40>>40 items ",
+      "correct": false
+    },
+    {
+      "problem": "Heather bought a jumbo bag of raisins with 27 cups of raisins in it. She wants to make oatmeal cooki",
+      "domain": "math",
+      "ref_answer": "12",
+      "pred_answer": "160",
+      "pred_solution": "Step 1: First find the total number of eggs she has left after the shelves: 120 eggs/car * 2 = <<120*2=240>>240 Step 2: Then find the total number of eggs she has left after the shelves: 240 eggs - 12",
+      "correct": false
+    },
+    {
+      "problem": "What is the net force on a 25 kg object with acceleration 5 m/s^2?",
+      "domain": "physics",
+      "ref_answer": "125 N",
+      "pred_answer": "20 N",
+      "pred_solution": "Step 1: Use the formula F = m \u00d7 g \u00d7. Step 2: F = 10 \u00d7 2 = 20 N. Answer: 20 N",
+      "correct": false
+    },
+    {
+      "problem": "Caroline has 4 children.  The first child is 6 feet tall.  The second child is two inches taller tha",
+      "domain": "math",
+      "ref_answer": "72",
+      "pred_answer": "18",
+      "pred_solution": "Step 1: First, we need to determine how many feet the first two equations. We do this by performing 2*2= <<2*2=4>>4 feet in the second equation. Step 2: Next, we find the third of the third level is 4",
+      "correct": false
+    },
+    {
+      "problem": "Jam has three boxes full of pencils and 2 loose pencils which give a total of 26 pencils. If her sis",
+      "domain": "math",
+      "ref_answer": "9",
+      "pred_answer": "60",
+      "pred_solution": "Step 1: First find the total number of groups of each kind of each kind of each kind of each kind of clothing: 20 pairs * 2 = <<20*2=40>>40 items Step 2: Then add the number of items each kind of each",
+      "correct": false
+    },
+    {
+      "problem": "Reggie, Lynn, and Paisley ran together. Paisley ran 4 miles. Reggie ran 5 times what Paisley ran and",
+      "domain": "math",
+      "ref_answer": "17",
+      "pred_answer": "",
+      "pred_solution": "Step 1: If the first two friends were 12 miles, then the second friend was 12/2 = <<12/2=6>>6 miles. Step 2: The third friend was 12/2 = <<1",
+      "correct": false
+    },
+    {
+      "problem": "Melanie found a blueprint online for a toothpick sculpture she wanted to make. It requires 200 tooth",
+      "domain": "math",
+      "ref_answer": "8",
+      "pred_answer": "240",
+      "pred_solution": "Step 1: First find the total number of trashaffes by multiplying the number of trashaffes by the number of trashaffes: 20 trumpes * 2 = <<20*2=40>>40 trumpes Step 2: Then find the total number of trum",
+      "correct": false
+    },
+    {
+      "problem": "Siobhan has 2 fewer jewels than Aaron. Aaron has 5 more jewels than half of Raymond's jewels. If Ray",
+      "domain": "math",
+      "ref_answer": "23",
+      "pred_answer": "",
+      "pred_solution": "Step 1: If the number of roses that the cutlery is 10 times the number of roses that the number of roses that the number of roses that the number of roses in the store is 10*10 = <<10*10=100>>100 Step",
+      "correct": false
+    },
+    {
+      "problem": "John decides to do several activities while out on vacation.  He spends 6 hours boating and half tha",
+      "domain": "math",
+      "ref_answer": "20",
+      "pred_answer": "",
+      "pred_solution": "Step 1: First find the total number of minutes in the first two types: 20 minutes * 2 = <<20*2=40>>40 minutes Step 2: Then find the total number of minutes in the second set: 40 minutes * 2 = <<40*2=8",
+      "correct": false
+    },
+    {
+      "problem": "There are three trees in Eddy's backyard. The shortest tree has a height of 6 feet, and the second t",
+      "domain": "math",
+      "ref_answer": "34",
+      "pred_answer": "",
+      "pred_solution": "Step 1: First find the total number of feet the first tree: 20 feet * 2 = <<20*2=40>>40 feet Step 2: Then find the total number of feet the second tree: 40 feet * 2 = <<40*2=80>>80 feet Step 3: Then f",
+      "correct": false
+    },
+    {
+      "problem": "Sean is practicing for his role in a theater production. He has to memorize his lines for two scenes",
+      "domain": "math",
+      "ref_answer": "138",
+      "pred_answer": "",
+      "pred_solution": "Step 1: First find the total number of stools by multiplying the number of stools by the number of stools per hour: 24 stools * 2 = <<24*2=48>>48 stools Step 2: Then find the total number of stools pe",
+      "correct": false
+    },
+    {
+      "problem": "Manny signed up for Karate classes for $60. His parents tell him that if his classes end up costing ",
+      "domain": "math",
+      "ref_answer": "4",
+      "pred_answer": "",
+      "pred_solution": "Step 1: First find the total number of kids in the first two months: 20 kids * 2 = <<20*2=40>>40 kids Step 2: Then find the total number of kids in the second grade: 40 kids * 2 = <<40*2=80>>80 kids S",
+      "correct": false
+    },
+    {
+      "problem": "Zeke's baseball team has 7 more players than Carlton's. If Carlton's team has 13 players, how many p",
+      "domain": "math",
+      "ref_answer": "33",
+      "pred_answer": "",
+      "pred_solution": "Step 1: If the number of kids in the box is 12, then the number of kids in the box is 1",
+      "correct": false
+    },
+    {
+      "problem": "Lloyd earns $10 an hour on Math tutoring.  He tutored 5 hours for the first week and 8 hours for the",
+      "domain": "math",
+      "ref_answer": "130",
+      "pred_answer": "40",
+      "pred_solution": "Step 1: The total amount of money he earns per day is $100 + $200 = $<<100+200=300>>300. Step 2: The total amount of money he earns per day is $300 / $15 = $<<300/15=40>>40. Answer: 40",
+      "correct": false
+    },
+    {
+      "problem": "Rozanne is making eggnog for her family. She uses 4 dozen eggs that were in cases and another 2 eggs",
+      "domain": "math",
+      "ref_answer": "2",
+      "pred_answer": "",
+      "pred_solution": "Step 1: The number of eggs that the family ate is 12 / 2 = <<12/2=6>>6. Step 2: The number of eggs that the family ate is",
+      "correct": false
+    }
+  ]
+}

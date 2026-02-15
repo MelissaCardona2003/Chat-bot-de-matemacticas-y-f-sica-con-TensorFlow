@@ -1,15 +1,17 @@
 """
-dataset_builder.py — Construcción de tf.data.Dataset.
+dataset_builder.py — Pipeline de datos con answer_value.
 
-Crea el pipeline de datos para entrenamiento y evaluación del Transformer,
-convirtiendo problemas JSON en tensores con padding y batching.
+Estructura del dataset:
+    ((encoder_input, decoder_input), (decoder_target, answer_value))
+
+Donde answer_value es un float32 escalar.
 
 Uso:
-    from transformer_math_physics_tutor.data.dataset_builder import create_dataset
-    from transformer_math_physics_tutor.data.tokenizer import CharTokenizer
+    from transformer_math_physics_tutor.data.dataset_builder import (
+        create_datasets
+    )
 
-    tokenizer = CharTokenizer("vocab.json")
-    dataset = create_dataset("math_clean.json", tokenizer)
+    train_ds, val_ds, test_ds, tokenizer = create_datasets()
 """
 
 import json
@@ -17,12 +19,9 @@ import numpy as np
 import tensorflow as tf
 from pathlib import Path
 from typing import Tuple, Optional, List, Dict
+from collections import Counter
 
-from transformer_math_physics_tutor.data.tokenizer import CharTokenizer
-
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
+from transformer_math_physics_tutor.data.subword_tokenizer import SubwordTokenizer
 
 
 def pad_sequence(
@@ -30,76 +29,68 @@ def pad_sequence(
     max_length: int,
     pad_value: int = 0
 ) -> List[int]:
-    """
-    Aplica padding o truncamiento a una secuencia.
-
-    Args:
-        sequence: Lista de índices de tokens.
-        max_length: Longitud máxima deseada.
-        pad_value: Valor de padding (por defecto 0 = <PAD>).
-
-    Returns:
-        Secuencia con padding/truncada a max_length.
-    """
+    """Aplica padding o truncamiento a una secuencia."""
     if len(sequence) > max_length:
         return sequence[:max_length]
-    else:
-        return sequence + [pad_value] * (max_length - len(sequence))
+    return sequence + [pad_value] * (max_length - len(sequence))
 
 
-def prepare_sequences(
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
+
+
+def prepare_sequences_v3(
     problems: List[Dict],
-    tokenizer: CharTokenizer,
-    max_problem_len: int = 100,
-    max_solution_len: int = 150
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    tokenizer: SubwordTokenizer,
+    max_problem_len: int = 128,
+    max_solution_len: int = 256,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    Prepara las secuencias de encoder y decoder a partir de los problemas.
+    Prepara secuencias + answer_value para v3_easy.
 
-    Para cada problema:
-    - encoder_input: tokenización del problema (con <START> y <END>)
-    - decoder_input: tokenización de la solución SIN el último token (<END>)
-    - decoder_target: tokenización de la solución SIN el primer token (<START>)
-
-    Esto implementa teacher forcing: el decoder recibe como input la solución
-    desplazada un paso, y el target es la solución desplazada al otro lado.
+    Similar a prepare_sequences_subword() pero también extrae
+    answer_value de cada problema.
 
     Args:
-        problems: Lista de diccionarios con 'problem' y 'solution'.
-        tokenizer: Instancia de CharTokenizer con vocabulario construido.
-        max_problem_len: Longitud máxima para secuencias del encoder.
-        max_solution_len: Longitud máxima para secuencias del decoder.
+        problems: Lista de dicts con 'problem', 'solution', 'answer_value'.
+        tokenizer: SubwordTokenizer cargado.
+        max_problem_len: Longitud máxima encoder (tokens).
+        max_solution_len: Longitud máxima decoder (tokens).
 
     Returns:
-        Tupla de (encoder_inputs, decoder_inputs, decoder_targets) como numpy arrays.
+        (encoder_inputs, decoder_inputs, decoder_targets, answer_values)
+        Todos np.ndarray. answer_values shape (n,) dtype float32.
     """
     encoder_inputs = []
     decoder_inputs = []
     decoder_targets = []
+    answer_values = []
 
     skipped = 0
+    truncated_enc = 0
+    truncated_dec = 0
 
     for prob in problems:
         problem_text = prob["problem"]
         solution_text = prob["solution"]
+        answer_val = prob.get("answer_value", 0.0)
 
-        # Tokenizar problema (encoder input)
+        # Tokenizar
         enc_tokens = tokenizer.encode(problem_text, add_special_tokens=True)
-
-        # Tokenizar solución completa (con START y END)
         sol_tokens = tokenizer.encode(solution_text, add_special_tokens=True)
 
-        # Verificar longitudes mínimas
         if len(sol_tokens) < 2:
             skipped += 1
             continue
 
-        # decoder_input = solución sin último token (sin END)
+        if len(enc_tokens) > max_problem_len:
+            truncated_enc += 1
+        if len(sol_tokens) > max_solution_len + 1:
+            truncated_dec += 1
+
         dec_inp_tokens = sol_tokens[:-1]
-        # decoder_target = solución sin primer token (sin START)
         dec_tar_tokens = sol_tokens[1:]
 
-        # Aplicar padding
         enc_padded = pad_sequence(enc_tokens, max_problem_len, tokenizer.pad_token_id)
         dec_inp_padded = pad_sequence(dec_inp_tokens, max_solution_len, tokenizer.pad_token_id)
         dec_tar_padded = pad_sequence(dec_tar_tokens, max_solution_len, tokenizer.pad_token_id)
@@ -107,196 +98,56 @@ def prepare_sequences(
         encoder_inputs.append(enc_padded)
         decoder_inputs.append(dec_inp_padded)
         decoder_targets.append(dec_tar_padded)
+        answer_values.append(float(answer_val))
 
     if skipped > 0:
         print(f"  Secuencias omitidas (muy cortas): {skipped}")
+    if truncated_enc > 0:
+        print(f"  Encoder truncados: {truncated_enc}/{len(problems)} "
+              f"({truncated_enc/len(problems)*100:.1f}%)")
+    if truncated_dec > 0:
+        print(f"  Decoder truncados: {truncated_dec}/{len(problems)} "
+              f"({truncated_dec/len(problems)*100:.1f}%)")
 
     encoder_inputs = np.array(encoder_inputs, dtype=np.int32)
     decoder_inputs = np.array(decoder_inputs, dtype=np.int32)
     decoder_targets = np.array(decoder_targets, dtype=np.int32)
+    answer_values = np.array(answer_values, dtype=np.float32)
 
     print(f"  Secuencias preparadas: {len(encoder_inputs)}")
     print(f"  Shape encoder_inputs: {encoder_inputs.shape}")
     print(f"  Shape decoder_inputs: {decoder_inputs.shape}")
     print(f"  Shape decoder_targets: {decoder_targets.shape}")
+    print(f"  Shape answer_values: {answer_values.shape}")
+    print(f"  Answer range: [{answer_values.min():.1f}, {answer_values.max():.1f}]")
 
-    return encoder_inputs, decoder_inputs, decoder_targets
+    return encoder_inputs, decoder_inputs, decoder_targets, answer_values
 
 
-def create_dataset(
-    data_file: str,
-    tokenizer: CharTokenizer,
-    max_problem_len: int = 100,
-    max_solution_len: int = 150,
+def create_datasets_v3_easy(
+    data_file: str = "combined_easy.json",
+    tokenizer_model: str = "checkpoints/v2_subword/sp_tokenizer.model",
+    max_problem_len: int = 128,
+    max_solution_len: int = 256,
     batch_size: int = 32,
-    shuffle: bool = True,
-    buffer_size: int = 10000
-) -> tf.data.Dataset:
-    """
-    Crea un tf.data.Dataset listo para entrenamiento.
-
-    El dataset tiene la estructura:
-        ((encoder_input, decoder_input), decoder_target)
-
-    Donde:
-        - encoder_input: (batch, max_problem_len) — problema tokenizado
-        - decoder_input: (batch, max_solution_len) — solución desplazada (teacher forcing)
-        - decoder_target: (batch, max_solution_len) — target para loss
-
-    Args:
-        data_file: Ruta al archivo JSON con los problemas.
-        tokenizer: Instancia de CharTokenizer con vocabulario construido.
-        max_problem_len: Longitud máxima del problema (encoder).
-        max_solution_len: Longitud máxima de la solución (decoder).
-        batch_size: Tamaño del batch.
-        shuffle: Si True, mezcla los datos.
-        buffer_size: Tamaño del buffer para shuffle.
-
-    Returns:
-        tf.data.Dataset con estructura ((enc_input, dec_input), dec_target).
-    """
-    data_path = Path(data_file)
-    if not data_path.is_absolute():
-        data_path = DATA_DIR / data_path
-
-    if not data_path.exists():
-        raise FileNotFoundError(f"No se encontró el archivo de datos: {data_path}")
-
-    # Cargar problemas
-    with open(data_path, "r", encoding="utf-8") as f:
-        problems = json.load(f)
-
-    print(f"Cargados {len(problems)} problemas desde {data_path}")
-
-    # Preparar secuencias
-    encoder_inputs, decoder_inputs, decoder_targets = prepare_sequences(
-        problems, tokenizer, max_problem_len, max_solution_len
-    )
-
-    # Crear tf.data.Dataset
-    dataset = tf.data.Dataset.from_tensor_slices((
-        (encoder_inputs, decoder_inputs),  # Inputs: (encoder, decoder)
-        decoder_targets                     # Target
-    ))
-
-    if shuffle:
-        dataset = dataset.shuffle(buffer_size)
-
-    dataset = dataset.batch(batch_size, drop_remainder=False)
-    dataset = dataset.prefetch(tf.data.AUTOTUNE)
-
-    print(f"  Dataset creado: batch_size={batch_size}, "
-          f"num_batches={len(encoder_inputs) // batch_size + 1}")
-
-    return dataset
-
-
-def create_train_val_datasets(
-    data_file: str = "math_clean.json",
-    tokenizer: Optional[CharTokenizer] = None,
-    max_problem_len: int = 100,
-    max_solution_len: int = 150,
-    batch_size: int = 32,
-    val_split: float = 0.1,
-    build_vocab: bool = True
-) -> Tuple[tf.data.Dataset, tf.data.Dataset, CharTokenizer]:
-    """
-    Crea datasets de entrenamiento y validación, y opcionalmente construye el tokenizer.
-
-    Args:
-        data_file: Nombre o ruta del archivo JSON con problemas.
-        tokenizer: Tokenizer existente. Si None, se crea uno nuevo.
-        max_problem_len: Longitud máxima del encoder.
-        max_solution_len: Longitud máxima del decoder.
-        batch_size: Tamaño del batch.
-        val_split: Fracción de datos para validación.
-        build_vocab: Si True y tokenizer es nuevo, construye el vocabulario.
-
-    Returns:
-        Tupla de (train_dataset, val_dataset, tokenizer).
-    """
-    data_path = Path(data_file)
-    if not data_path.is_absolute():
-        data_path = DATA_DIR / data_path
-
-    # Cargar datos
-    with open(data_path, "r", encoding="utf-8") as f:
-        problems = json.load(f)
-
-    # Crear o usar tokenizer
-    if tokenizer is None:
-        tokenizer = CharTokenizer()
-
-    if build_vocab:
-        all_texts = (
-            [p["problem"] for p in problems] +
-            [p["solution"] for p in problems]
-        )
-        tokenizer.build_vocab(all_texts)
-
-    # Barajar con semilla fija para reproducibilidad
-    import random
-    rng = random.Random(42)
-    problems_shuffled = problems.copy()
-    rng.shuffle(problems_shuffled)
-
-    # Dividir en train/val
-    n_val = max(1, int(len(problems_shuffled) * val_split))
-    n_train = len(problems_shuffled) - n_val
-
-    train_problems = problems_shuffled[:n_train]
-    val_problems = problems_shuffled[n_train:]
-
-    print(f"\nDivisión train/val: {n_train}/{n_val}")
-
-    # Crear datasets directamente en memoria (sin archivos temporales)
-    print("\nCreando dataset de entrenamiento:")
-    train_enc, train_dec_inp, train_dec_tar = prepare_sequences(
-        train_problems, tokenizer, max_problem_len, max_solution_len
-    )
-    train_dataset = tf.data.Dataset.from_tensor_slices((
-        (train_enc, train_dec_inp), train_dec_tar
-    )).shuffle(10000).batch(batch_size, drop_remainder=False).prefetch(tf.data.AUTOTUNE)
-
-    print("\nCreando dataset de validación:")
-    val_enc, val_dec_inp, val_dec_tar = prepare_sequences(
-        val_problems, tokenizer, max_problem_len, max_solution_len
-    )
-    val_dataset = tf.data.Dataset.from_tensor_slices((
-        (val_enc, val_dec_inp), val_dec_tar
-    )).batch(batch_size, drop_remainder=False).prefetch(tf.data.AUTOTUNE)
-
-    return train_dataset, val_dataset, tokenizer
-
-
-def create_datasets_from_combined(
-    data_file: str = "combined_math_physics.json",
-    tokenizer: Optional[CharTokenizer] = None,
-    max_problem_len: int = 200,
-    max_solution_len: int = 300,
-    batch_size: int = 32,
-    build_vocab: bool = True,
     val_fallback_ratio: float = 0.1,
-) -> Tuple[tf.data.Dataset, tf.data.Dataset, tf.data.Dataset, CharTokenizer]:
+) -> Tuple[tf.data.Dataset, tf.data.Dataset, Optional[tf.data.Dataset], SubwordTokenizer]:
     """
-    Crea datasets train/val/test desde un archivo con campo 'split'.
+    Crea datasets train/val/test para v3_easy con answer_value.
 
-    El archivo JSON debe contener entradas con el esquema unificado
-    (ver data/schema.py), incluyendo el campo "split" = train|val|test.
+    Estructura del dataset:
+        ((encoder_input, decoder_input), (decoder_target, answer_value))
 
     Args:
-        data_file: Ruta al JSON combinado.
-        tokenizer: Tokenizer existente. Si None, se crea uno nuevo.
-        max_problem_len: Longitud máxima del encoder.
-        max_solution_len: Longitud máxima del decoder.
+        data_file: Ruta al JSON con problemas fáciles (con answer_value).
+        tokenizer_model: Ruta al .model de SentencePiece.
+        max_problem_len: Longitud máxima encoder (tokens subword).
+        max_solution_len: Longitud máxima decoder (tokens subword).
         batch_size: Tamaño del batch.
-        build_vocab: Si True, construye vocabulario desde los datos.
-        val_fallback_ratio: Si no hay split "val" en los datos,
-                             usa esta fracción del train como val.
+        val_fallback_ratio: Fracción para val si no hay split "val".
 
     Returns:
         (train_dataset, val_dataset, test_dataset, tokenizer)
-        test_dataset puede ser None si no hay datos de test.
     """
     data_path = Path(data_file)
     if not data_path.is_absolute():
@@ -305,7 +156,7 @@ def create_datasets_from_combined(
     with open(data_path, "r", encoding="utf-8") as f:
         all_problems = json.load(f)
 
-    print(f"\nCargados {len(all_problems)} problemas desde {data_path.name}")
+    print(f"\nCargados {len(all_problems)} problemas fáciles desde {data_path.name}")
 
     # Separar por split
     train_probs = [p for p in all_problems if p.get("split") == "train"]
@@ -322,7 +173,6 @@ def create_datasets_from_combined(
         train_probs = train_probs[n_val:]
 
     # Contar por dominio
-    from collections import Counter
     train_domains = Counter(p.get("domain", "?") for p in train_probs)
     val_domains = Counter(p.get("domain", "?") for p in val_probs)
     test_domains = Counter(p.get("domain", "?") for p in test_probs)
@@ -331,78 +181,59 @@ def create_datasets_from_combined(
     print(f"  Val:   {len(val_probs)} ({dict(val_domains)})")
     print(f"  Test:  {len(test_probs)} ({dict(test_domains)})")
 
-    # Crear/usar tokenizer
-    if tokenizer is None:
-        tokenizer = CharTokenizer()
+    # Cargar tokenizer
+    tokenizer_path = Path(tokenizer_model)
+    if not tokenizer_path.is_absolute():
+        tokenizer_path = BASE_DIR / tokenizer_model
+    tokenizer = SubwordTokenizer(str(tokenizer_path))
 
-    if build_vocab:
-        all_texts = (
-            [p["problem"] for p in all_problems] +
-            [p["solution"] for p in all_problems]
-        )
-        tokenizer.build_vocab(all_texts)
-
-    # Crear datasets
-    print("\nCreando dataset de entrenamiento:")
-    train_enc, train_dec_inp, train_dec_tar = prepare_sequences(
+    # Crear datos
+    print(f"\nCreando dataset de entrenamiento (v3_easy):")
+    train_enc, train_dec_inp, train_dec_tar, train_ans = prepare_sequences_v3(
         train_probs, tokenizer, max_problem_len, max_solution_len
     )
     train_dataset = tf.data.Dataset.from_tensor_slices((
-        (train_enc, train_dec_inp), train_dec_tar
+        (train_enc, train_dec_inp), (train_dec_tar, train_ans)
     )).shuffle(10000).batch(batch_size, drop_remainder=False).prefetch(tf.data.AUTOTUNE)
 
-    print("\nCreando dataset de validación:")
-    val_enc, val_dec_inp, val_dec_tar = prepare_sequences(
+    print(f"\nCreando dataset de validación (v3_easy):")
+    val_enc, val_dec_inp, val_dec_tar, val_ans = prepare_sequences_v3(
         val_probs, tokenizer, max_problem_len, max_solution_len
     )
     val_dataset = tf.data.Dataset.from_tensor_slices((
-        (val_enc, val_dec_inp), val_dec_tar
+        (val_enc, val_dec_inp), (val_dec_tar, val_ans)
     )).batch(batch_size, drop_remainder=False).prefetch(tf.data.AUTOTUNE)
 
-    # Test (puede ser vacío)
+    # Test
     test_dataset = None
     if test_probs:
-        print("\nCreando dataset de test:")
-        test_enc, test_dec_inp, test_dec_tar = prepare_sequences(
+        print(f"\nCreando dataset de test (v3_easy):")
+        test_enc, test_dec_inp, test_dec_tar, test_ans = prepare_sequences_v3(
             test_probs, tokenizer, max_problem_len, max_solution_len
         )
         test_dataset = tf.data.Dataset.from_tensor_slices((
-            (test_enc, test_dec_inp), test_dec_tar
+            (test_enc, test_dec_inp), (test_dec_tar, test_ans)
         )).batch(batch_size, drop_remainder=False).prefetch(tf.data.AUTOTUNE)
 
     return train_dataset, val_dataset, test_dataset, tokenizer
 
 
 if __name__ == "__main__":
+    import os
+    os.environ.setdefault("XLA_FLAGS", "--xla_gpu_cuda_data_dir=/usr/local/cuda-12.8")
+    os.environ.setdefault("TF_XLA_FLAGS", "--tf_xla_auto_jit=2")
+
     print("=" * 60)
-    print("DEMO: Dataset Builder")
+    print("DEMO: Dataset Builder v3_easy")
     print("=" * 60)
 
-    # Intentar primero el dataset combinado
-    combined_path = DATA_DIR / "combined_math_physics.json"
-    clean_path = DATA_DIR / "math_clean.json"
+    train_ds, val_ds, test_ds, tok = create_datasets_v3_easy()
 
-    if combined_path.exists():
-        print(f"\nUsando dataset combinado: {combined_path.name}")
-        train_ds, val_ds, test_ds, tok = create_datasets_from_combined()
-
-        for (enc, dec), target in train_ds.take(1):
-            print(f"\nBatch de ejemplo:")
-            print(f"  Encoder input shape: {enc.shape}")
-            print(f"  Decoder input shape: {dec.shape}")
-            print(f"  Target shape: {target.shape}")
-            print(f"\n  Primer problema: '{tok.decode(enc[0].numpy())[:80]}...'")
-            print(f"  Primer target: '{tok.decode(target[0].numpy())[:80]}...'")
-
-    elif clean_path.exists():
-        print(f"\nUsando dataset legacy: {clean_path.name}")
-        train_ds, val_ds, tok = create_train_val_datasets()
-
-        for (enc, dec), target in train_ds.take(1):
-            print(f"\nBatch de ejemplo:")
-            print(f"  Encoder input shape: {enc.shape}")
-            print(f"  Decoder input shape: {dec.shape}")
-            print(f"  Target shape: {target.shape}")
-    else:
-        print("No se encontró ningún dataset.")
-        print("Ejecuta: python data/build_combined_dataset.py")
+    for (enc, dec), (target, answer_val) in train_ds.take(1):
+        print(f"\nBatch de ejemplo:")
+        print(f"  Encoder input shape: {enc.shape}")
+        print(f"  Decoder input shape: {dec.shape}")
+        print(f"  Target shape: {target.shape}")
+        print(f"  Answer values shape: {answer_val.shape}")
+        print(f"  Answer values (primeros 5): {answer_val[:5].numpy()}")
+        print(f"\n  Primer problema: '{tok.decode(enc[0].numpy().tolist())[:80]}...'")

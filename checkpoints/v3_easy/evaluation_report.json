@@ -1,0 +1,345 @@
+{
+  "version": "v3_easy",
+  "description": "Answer Head + Decoder Masking (35%) + Easy Subset",
+  "tokenizer": "SubwordTokenizer (BPE, 4000) \u2014 same as v2",
+  "token_accuracy": {
+    "val_acc": 0.7380856424570084,
+    "val_loss": 2.383424401283264,
+    "test_acc": 0.6987962893077305,
+    "test_loss": 2.5855303605397544
+  },
+  "answer_head": {
+    "mae": 298.8036219241264,
+    "exact_pct": 0.6220839813374806
+  },
+  "exact_match": {
+    "textual_correct": 3,
+    "textual_total": 100,
+    "textual_pct": 3.0,
+    "numeric_correct": 3,
+    "numeric_total": 86,
+    "numeric_pct": 3.488372093023256,
+    "by_domain": {
+      "math": {
+        "correct": 3,
+        "total": 88,
+        "numeric_correct": 3,
+        "numeric_total": 88
+      },
+      "physics": {
+        "correct": 0,
+        "total": 12,
+        "numeric_correct": 0,
+        "numeric_total": 12
+      }
+    }
+  },
+  "cross_attention_entropy": {
+    "decoder_layer1_block2": 0.7420262604002061,
+    "decoder_layer2_block2": 0.5404254759510283,
+    "decoder_layer3_block2": 0.5233966589295267,
+    "decoder_layer4_block2": 0.6729495812069128
+  },
+  "examples": [
+    {
+      "problem": "Elijah has one dog that is one-fourth the weight of Kory\u2019s dog and another dog that is half the weight of Kory\u2019s dog. If",
+      "domain": "math",
+      "ref_answer": "105",
+      "pred_answer": "",
+      "pred_solution": "Step 1: If the number of nephews Alden has now is 20-4 = <<20-4=16>>16 nephews. Step 2: The total number of nephews he has is 16+10 = <<16+10=26>>26 nephews. Step 3: The total number of nephews he",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 105.0
+    },
+    {
+      "problem": "What is the net force on a 25 kg object with acceleration 5 m/s^2?",
+      "domain": "physics",
+      "ref_answer": "125 N",
+      "pred_answer": "6 N",
+      "pred_solution": "Step 1: Use Newton's second law: F = m \u00d7 a. Step 2: F = 2 \u00d7 3 = 6 N. Answer: 6 N",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 125.0
+    },
+    {
+      "problem": "Siobhan has 2 fewer jewels than Aaron. Aaron has 5 more jewels than half of Raymond's jewels. If Raymond has 40 jewels, ",
+      "domain": "math",
+      "ref_answer": "23",
+      "pred_answer": "60",
+      "pred_solution": "Step 1: If Sido has 20 more than Jennie, then she has 20+20 = <<20+20=40>>40 more beanie babies. Step 2: Together, they have 20+40 = <<20+40=60>>60 beanie babies. Answer: 60",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 23.0
+    },
+    {
+      "problem": "There are three trees in Eddy's backyard. The shortest tree has a height of 6 feet, and the second tree has a height of ",
+      "domain": "math",
+      "ref_answer": "34",
+      "pred_answer": "150",
+      "pred_solution": "Step 1: The first 100th floor is 100*2=<<100*2=200>>200 feet. Step 2: The last two digits have 200+100=<<200+100=300>>300 feet. Step 3: Then the average height of the first 200/2=<<300/2=150>>150 feet. Answer: 150",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 34.0
+    },
+    {
+      "problem": "Manny signed up for Karate classes for $60. His parents tell him that if his classes end up costing more than $10 per cl",
+      "domain": "math",
+      "ref_answer": "4",
+      "pred_answer": "60",
+      "pred_solution": "Step 1: The number of guests that he lost to the library is 100% - 10% = 90% Step 2: The total number of guests that he lost to buy is 90% - 10% = 60% Answer: 60",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 4.0
+    },
+    {
+      "problem": "Zeke's baseball team has 7 more players than Carlton's. If Carlton's team has 13 players, how many players are there in ",
+      "domain": "math",
+      "ref_answer": "33",
+      "pred_answer": "12",
+      "pred_solution": "Step 1: First find the total number of blisters on the fisters: 120 blisters + 120 blisters = <<120+120=240>>240 blisters Step 2: Then divide the number of blisters by the number of blisters on the total number of blisters on the fisters on each side",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 33.0
+    },
+    {
+      "problem": "Lloyd earns $10 an hour on Math tutoring.  He tutored 5 hours for the first week and 8 hours for the second week. How mu",
+      "domain": "math",
+      "ref_answer": "130",
+      "pred_answer": "",
+      "pred_solution": "Step 1: If the number of students who took home to the library is 2/5*400 = <<2/5*400=160>>160 Step 2: The total number of students who took to the vanilla is 400+160 = <<400+160=640>>640 Step 3: Since the total number of students who took home is 64",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 130.0
+    },
+    {
+      "problem": "Sally received the following scores on her math quizzes: 50, 80, 80, 60, 40, 90, 100, 70, and 60. Find her mean score.",
+      "domain": "math",
+      "ref_answer": "70",
+      "pred_answer": "",
+      "pred_solution": "Step 1: The sum of the three integers is 100+100+100+100+100+10",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 70.0
+    },
+    {
+      "problem": "Ben has 4 tubes of blue paint and 3 tubes of yellow paint. Jasper has half as many tubes of blue paint as Ben, and three",
+      "domain": "math",
+      "ref_answer": "11",
+      "pred_answer": "10",
+      "pred_solution": "Step 1: The number of balls that Jennify has now is 100 - 40 = <<100-40=60>>60. Step 2: The total number of balls that Jennie has is 60 + 10 = <<60+10=70>>70. Step 3: Therefore, Jennon has 50 - 70 = <<50-70=10>>10 balls more than Jennie. Answer: 10",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 11.0
+    },
+    {
+      "problem": "Timothy's locker is 24 cubic inches. Zack's locker is half as big as Timothy's locker. Peter's locker is 1/4 as big as Z",
+      "domain": "math",
+      "ref_answer": "3",
+      "pred_answer": "",
+      "pred_solution": "Step 1: We have 12 = (1/2) + (1/2) + (1/2) + (1/2",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 3.0
+    },
+    {
+      "problem": "Shelly's 3 kids spent all day at the water park.  Mitchel went down the water slide 30 times.  Anne went down the slide ",
+      "domain": "math",
+      "ref_answer": "84",
+      "pred_answer": "400",
+      "pred_solution": "Step 1: He has 100*2=<<100*2=200>>200 skips Step 2: So he has 200*2=<<200*2=400>>400 skips Answer: 400",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 84.0
+    },
+    {
+      "problem": "Regina wrote 9 novels last year. If this is 3 quarters of the number of novels she has written this year, how many novel",
+      "domain": "math",
+      "ref_answer": "12",
+      "pred_answer": "100",
+      "pred_solution": "Step 1: If she bought 200 books, she has 200+200 = <<200+200=300>>300 books. Step 2: Since she buys 1/4 of the books, she has 300/4 = <<300/4=150>>150 books. Step 3: Since she adds 150 books, she has 150-150 = <<150-150=100>>100 books. Answer: 100",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 12.0
+    },
+    {
+      "problem": "There are 6 girls in the park. If there are twice the number of boys in the park, how many kids are in the park?",
+      "domain": "math",
+      "ref_answer": "18",
+      "pred_answer": "50",
+      "pred_solution": "Step 1: The number of students in the choir is 1/4*80 = <<1/4*80=20>>20 Step 2: The total number of students in the choir is 80+20 = <<80+20=100>>100 Step 3: Since there are 100 students in the class, the number of students in the class is 100-100 = ",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 18.0
+    },
+    {
+      "problem": "A farmer extracts 5 liters of milk a day from a cow. Since he has 3 cows, how many more cows does he need to have to pro",
+      "domain": "math",
+      "ref_answer": "2",
+      "pred_answer": "10",
+      "pred_solution": "Step 1: He has 100*2=<<100*2=200>>200 pounds of honey Step 2: That means he needs to buy 200/200=<<200/200=10>>10 pounds of honey Answer: 10",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 2.0
+    },
+    {
+      "problem": "There are twice as many boys as girls at Dr. Wertz's school. If there are 60 girls and 5 students to every teacher, how ",
+      "domain": "math",
+      "ref_answer": "36",
+      "pred_answer": "140",
+      "pred_solution": "Step 1: There are 100 - 30 = <<100-30=70>>70 students in the school. Step 2: Thus, there are 70 x 2 = <<70*2=140>>140 students in the school. Answer: 140",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 36.0
+    },
+    {
+      "problem": "A 220 V source drives a current of 0.5 A. What is the resistance?",
+      "domain": "physics",
+      "ref_answer": "440.0 \u03a9",
+      "pred_answer": "12.0 \u03a9",
+      "pred_solution": "Step 1: Use Ohm's law rearranged: R = V / I. Step 2: R = 120 / 1 = 12.0 \u03a9. Answer: 12.0 \u03a9",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 440.0
+    },
+    {
+      "problem": "Bob thinks he needs 56 popsicle sticks to recreate the Washington Monument for his history project.  His favorite popsic",
+      "domain": "math",
+      "ref_answer": "14",
+      "pred_answer": "7",
+      "pred_solution": "Step 1: The total cost of the paintbrush, the paints, and the easel is $1.25 + $1.25 + $1.25 = $<<1.25+1.25+1.25=3>>3. Step 2: Zachary needs $100 - $3 = $<<100-3=7>>7. Answer: 7",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 14.0
+    },
+    {
+      "problem": "The bakers at the Beverly Hills Bakery baked 200 loaves of bread on Monday morning. They sold 93 loaves in the morning a",
+      "domain": "math",
+      "ref_answer": "74",
+      "pred_answer": "100",
+      "pred_solution": "Step 1: The total number of apples delivered is 120 + 100 = <<120+100=200>>200 apples. Step 2: The total number of apples remaining is 200 - 100 = <<200-100=100>>100 apples. Answer: 100",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 74.0
+    },
+    {
+      "problem": "Charlie has three times as many Facebook friends as Dorothy. James has four times as many friends on Facebook as Dorothy",
+      "domain": "math",
+      "ref_answer": "16",
+      "pred_answer": "4",
+      "pred_solution": "Step 1: There are 12/2 = <<12/2=6>>6 sets of 2 red slices. Step 2: There are 6+12 = <<6+12=18>>18 blue slices. Step 3: There are 18-18 = <<18-18=4>>4 blue slices left. Answer: 4",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 16.0
+    },
+    {
+      "problem": "What is the net force on a 8 kg object with acceleration 2 m/s^2?",
+      "domain": "physics",
+      "ref_answer": "16 N",
+      "pred_answer": "80 N",
+      "pred_solution": "Step 1: Use Newton's second law: F = m \u00d7 a. Step 2: F = 10 \u00d7 8 = 80 N. Answer: 80 N",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 16.0
+    },
+    {
+      "problem": "Bruce works for 5 hours on Tuesday. On Wednesday he works twice the time he works on Tuesday. On Thursday he works 2 hou",
+      "domain": "math",
+      "ref_answer": "23",
+      "pred_answer": "40",
+      "pred_solution": "Step 1: He spends 2*10=<<2*10=20>>20 hours on Wednesday Step 2: So he spends 20*2=<<20*2=40>>40 hours on Tuesday Answer: 40",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 23.0
+    },
+    {
+      "problem": "James likes to check the coin return of the vending machine for change. One day he finds a quarter, two nickels, and 7 d",
+      "domain": "math",
+      "ref_answer": "105",
+      "pred_answer": "400",
+      "pred_solution": "Step 1: He got 200*.8=<<200*.8=160>>160 pounds of gr Step 2: So he got 200-160=<<200-160=400>>400 pounds of noodles Answer: 400",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 105.0
+    },
+    {
+      "problem": "Raymond and Samantha are cousins. Raymond was born 6 years before Samantha. Raymond had a son at the age of 23. If Saman",
+      "domain": "math",
+      "ref_answer": "14",
+      "pred_answer": "",
+      "pred_solution": "Step 1: If she bought 200 pencils, she has 200+200 = <<200+200=400>>400 pencils. Step 2: Since she is half the number of pencils, she has 400/2 = <<400/2=200>>200 pencils. Step 3: Since she is half the number of pencils,",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 14.0
+    },
+    {
+      "problem": "In a school activity, fifty-four students are to be separated into six groups of equal size. If the activity requires 12",
+      "domain": "math",
+      "ref_answer": "3",
+      "pred_answer": "400",
+      "pred_solution": "Step 1: He has 100*2=<<100*2=200>>200 pages Step 2: So he has 200*2=<<200*2=400>>400 pages Answer: 400",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 3.0
+    },
+    {
+      "problem": "Sarah has a rope that is 20 meters long. Her friend wants to buy the rope for $2 a meter. Sarah plans to use the profit ",
+      "domain": "math",
+      "ref_answer": "10",
+      "pred_answer": "110",
+      "pred_solution": "Step 1: He spends 2*10=<<2*10=20>>20 on Wednesday Step 2: That means he spends 20*3=$<<20*3=60>>60 on Wednesday Step 3: So he spends 60+60=$<<60+60=110>>110 Answer: 110",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 10.0
+    },
+    {
+      "problem": "When Freda cooks canned tomatoes into sauce, they lose half their volume. Each 16 ounce can of tomatoes that she uses co",
+      "domain": "math",
+      "ref_answer": "12",
+      "pred_answer": "72",
+      "pred_solution": "Step 1: He has 12*2=<<12*2=24>>24 crabs Step 2: That means he has 24*3=<<24*3=72>>72 keybs Answer: 72",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 12.0
+    },
+    {
+      "problem": "John buys a cassette with 2 songs.  The first song is 5 minutes and the second song is 60% longer.  How much time was th",
+      "domain": "math",
+      "ref_answer": "13",
+      "pred_answer": "720",
+      "pred_solution": "Step 1: He spends 2*10=<<2*10=20>>20 minutes every day Step 2: So he spends 20*7=<<20*7=140>>140 minutes a week Step 3: That means he spends 140*7=<<140*7=720>>720 minutes a week Answer: 720",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 13.0
+    },
+    {
+      "problem": "Emily has 4 kids named Amy, Jackson, Corey, and James. Amy is 5 years older than Jackson and 2 years younger than Corey.",
+      "domain": "math",
+      "ref_answer": "4",
+      "pred_answer": "8",
+      "pred_solution": "Step 1: If Layla's age is 20 years old, she is 20-10=<<20-10=10>>10 years old. Step 2: If Reca's age is 10 years old, she is 10-2=<<10-2=8>>8 years old. Answer: 8",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 4.0
+    },
+    {
+      "problem": "Jen decides to travel to 3 different countries.  He has to pay $400 for the supplies he needs, in total.  The tickets fo",
+      "domain": "math",
+      "ref_answer": "1000",
+      "pred_answer": "570",
+      "pred_solution": "Step 1: The total cost of the two smart televisions is $120 + $100 = $<<120+100=220>>220. Step 2: The total cost of the two smartions is $220 + $220 = $<<220+220=250>>250. Step 3: Therefore, the total cost of the two smart televisions is $250 + $220 ",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 1000.0
+    },
+    {
+      "problem": "Dora wants to buy a skipping rope that costs $6, a board game that costs $11, and a playground ball that costs $2. She h",
+      "domain": "math",
+      "ref_answer": "1",
+      "pred_answer": "80",
+      "pred_solution": "Step 1: He has 100*.2=<<100*.2=20>>20 pounds of noodles Step 2: So he has 100-20=<<100-20=80>>80 pounds of noodles Answer: 80",
+      "correct": false,
+      "numeric_correct": false,
+      "true_value": 1.0
+    }
+  ]
+}
