@@ -47,3 +47,12 @@ checkpoints/v4_copy/
 training_v4.log
 resume_phase3.log
 eval_v4.log
+
+# V3_augmented experimental files (resultado negativo, solo local)
+data/augmenter.py
+data/combined_easy_augmented.json
+run_finetune_augmented.py
+evaluation/evaluate_augmented.py
+checkpoints/v3_augmented/
+finetune_augmented.log
+eval_augmented.log
